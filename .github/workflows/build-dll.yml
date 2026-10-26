@@ -1,0 +1,41 @@
+# Put this at .github/workflows/build-dll.yml in YOUR fork of the Amalgam repo,
+# then Actions tab -> "Build DLL" -> Run workflow. The DLL shows up as a downloadable artifact.
+# Untested against that repo: if msbuild complains, the error in the log will say which
+# Platform/Configuration names the .sln actually uses - edit the two env values below.
+name: Build DLL
+
+on:
+  workflow_dispatch:
+
+env:
+  CONFIGURATION: Release
+  PLATFORM: x64
+
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - uses: microsoft/setup-msbuild@v2
+
+      - name: Find solution
+        id: sln
+        shell: pwsh
+        run: |
+          $s = Get-ChildItem -Recurse -Filter *.sln | Select-Object -First 1
+          if (-not $s) { throw "no .sln found" }
+          "path=$($s.FullName)" >> $env:GITHUB_OUTPUT
+
+      - name: Build
+        shell: pwsh
+        run: msbuild "${{ steps.sln.outputs.path }}" /p:Configuration=$env:CONFIGURATION /p:Platform=$env:PLATFORM /m
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: dll
+          path: |
+            **/*.dll
+            !**/obj/**
